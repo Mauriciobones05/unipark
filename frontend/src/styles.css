@@ -36,3 +36,19 @@ button:disabled { background:#334155; color:#64748b; cursor:not-allowed; }
 .events li { padding:4px 0; border-bottom:1px solid #334155; }
 .events time { color:var(--mut); margin-right:8px; }
 .lost main { opacity:.45; }
+
+.banner-warn { background: var(--warn); color: #111; }
+.btns.two { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-top: 10px; }
+.lot { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; padding: 4px 0 12px; }
+.lot-count { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.lot-count .big { font-size: 3.4rem; font-weight: 800; color: var(--ok); line-height: 1; }
+.lot-count .big.full { color: var(--bad); }
+.lot-count .of { color: var(--mut); }
+.slots { display: flex; gap: 8px; flex-wrap: wrap; }
+.slot { width: 52px; height: 64px; border-radius: 8px; display: grid; place-items: center; font-weight: 700; border: 2px solid #475569; }
+.slot.free { background: #14532d; border-color: var(--ok); }
+.slot.busy { background: #7f1d1d; border-color: var(--bad); }
+.adjust { display: flex; gap: 8px; align-items: end; margin-top: 12px; flex-wrap: wrap; }
+.adjust label { display: grid; gap: 4px; font-size: .85rem; color: var(--mut); }
+.adjust input { padding: 12px; border-radius: 8px; border: 1px solid #475569; background: var(--bg); color: var(--txt); font-size: 1rem; width: 140px; }
+.sim { border: 1px dashed var(--warn); }

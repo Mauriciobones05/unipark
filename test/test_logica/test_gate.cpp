@@ -6,15 +6,16 @@
 #include "DebounceFilter.h"
 #include "../../src/GateController.cpp"   // logica pura: compilada junto com o teste
 
-static GateConfig fastCfg() {
-  GateConfig c;
+static GateConfig fastCfg(uint16_t cap = 5) {
+  GateConfig c; c.capacity = cap; c.authWaitMs = 0;
   c.travelOpenMs = 100; c.travelCloseMs = 150; c.closeDelayMs = 300;
   c.limitConfirmMs = 200; c.openStuckMs = 60; c.limitLostMs = 40;
   return c;
 }
 
 struct Sim {
-  GateController g{fastCfg()};
+  GateController g;
+  explicit Sim(uint16_t cap = 5) : g(fastCfg(cap)) {}
   GateInputs in;
   uint32_t t = 1000;
   void init(bool limit) {
@@ -24,12 +25,13 @@ struct Sim {
   void run(uint32_t ms) { for (uint32_t i = 0; i < ms; i++) { t++; in.now = t; g.update(in); } }
   void obstacle(bool v) { in.obstacle = in.obstacleRaw = v; in.obstacleChangedAt = t; }
   void limit(bool v) { in.limit = v; in.limitChangedAt = t; }
+  void pass() { obstacle(true); run(30); obstacle(false); run(5); }   // veiculo cruza o sensor de passagem
   void car(bool v) { in.arrivalRawSince = t; run(v ? 60 : 0); in.arrival = v; run(v ? 1 : 0); }   // 60 ms = filtro de chegada
   GateState st() { return g.state(); }
 };
 
-static Sim* mk(bool limit = true) { Sim* s = new Sim(); s->init(limit); s->run(5); return s; }
-static Sim* openGate() { Sim* s = mk(); s->car(true); s->limit(false); s->run(105); s->car(false); return s; }   // fim de curso solta ao abrir
+static Sim* mk(bool limit = true, uint16_t cap = 5) { Sim* s = new Sim(cap); s->init(limit); s->run(5); return s; }
+static Sim* openGate(uint16_t cap = 5) { Sim* s = mk(true, cap); s->car(true); s->limit(false); s->run(105); s->car(false); return s; }   // fim de curso solta ao abrir
 
 void setUp() {}
 void tearDown() {}
@@ -213,6 +215,76 @@ void test_filtro_rejeita_pulso_curto_e_aceita_estavel() {
   TEST_ASSERT_FALSE(f.active());
 }
 
+void test_entrada_automatica_conta_vaga_na_passagem() {
+  Sim* s = openGate();
+  TEST_ASSERT_EQUAL(Auth::ENTRADA, s->g.auth());
+  TEST_ASSERT_EQUAL_UINT16(0, s->g.occupied());     // ainda nao passou
+  s->pass();
+  TEST_ASSERT_EQUAL_UINT16(1, s->g.occupied());
+  TEST_ASSERT_EQUAL_UINT32(1, s->g.metrics().entries);
+  TEST_ASSERT_EQUAL(Auth::NENHUMA, s->g.auth());
+  s->pass();                                        // outro objeto sem autorizacao: nao conta
+  TEST_ASSERT_EQUAL_UINT16(1, s->g.occupied());
+  delete s;
+}
+
+void test_lotado_nega_entrada_e_mantem_fechada() {
+  Sim* s = openGate(1);
+  s->pass();                                        // 1/1
+  s->run(400); s->limit(true); s->run(400);         // fecha
+  TEST_ASSERT_EQUAL(GateState::FECHADA, s->st());
+  s->car(true); s->run(100);
+  TEST_ASSERT_EQUAL(GateState::FECHADA, s->st());
+  TEST_ASSERT_EQUAL_UINT32(1, s->g.metrics().deniedFull);
+  s->run(1000);                                     // mesmo carro parado: nao repete a negativa
+  TEST_ASSERT_EQUAL_UINT32(1, s->g.metrics().deniedFull);
+  TEST_ASSERT_EQUAL(409, s->g.requestReleaseEntry().http);
+  delete s;
+}
+
+void test_operador_libera_saida_e_decrementa() {
+  Sim* s = mk(); s->g.requestMode(GateMode::MANUAL);
+  TEST_ASSERT_EQUAL(409, s->g.requestReleaseExit().http);   // vazio
+  TEST_ASSERT_TRUE(s->g.requestSetOccupied(2).ok);
+  TEST_ASSERT_EQUAL(400, s->g.requestSetOccupied(6).http);
+  TEST_ASSERT_TRUE(s->g.requestReleaseExit().ok);
+  s->limit(false); s->run(110);
+  TEST_ASSERT_EQUAL(GateState::ABERTA, s->st());
+  TEST_ASSERT_EQUAL(409, s->g.requestReleaseExit().http);   // ja ha autorizacao
+  s->pass();
+  TEST_ASSERT_EQUAL_UINT16(1, s->g.occupied());
+  TEST_ASSERT_EQUAL_UINT32(1, s->g.metrics().exits);
+  delete s;
+}
+
+void test_operador_libera_entrada_em_modo_manual() {
+  Sim* s = mk(); s->g.requestMode(GateMode::MANUAL);
+  TEST_ASSERT_TRUE(s->g.requestReleaseEntry().ok);
+  s->limit(false); s->run(110);
+  s->pass();
+  TEST_ASSERT_EQUAL_UINT16(1, s->g.occupied());
+  delete s;
+}
+
+void test_autorizacao_expira_se_ninguem_passa() {
+  Sim* s = mk(); s->g.requestMode(GateMode::MANUAL);
+  s->g.requestReleaseEntry(); s->limit(false); s->run(110);
+  TEST_ASSERT_TRUE(s->g.requestClose().ok);         // operador desiste
+  s->run(160); s->limit(true); s->run(5);
+  TEST_ASSERT_EQUAL(GateState::FECHADA, s->st());
+  TEST_ASSERT_EQUAL(Auth::NENHUMA, s->g.auth());
+  TEST_ASSERT_EQUAL_UINT16(0, s->g.occupied());
+  delete s;
+}
+
+void test_liberar_em_falha_e_recusado() {
+  Sim* s = mk(false);                               // boot sem fim de curso
+  s->run(500);
+  TEST_ASSERT_EQUAL(GateState::FALHA, s->st());
+  TEST_ASSERT_EQUAL(409, s->g.requestReleaseEntry().http);
+  delete s;
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_boot_com_fim_de_curso_fica_fechada);
@@ -232,5 +304,11 @@ int main() {
   RUN_TEST(test_fim_de_curso_preso_com_cancela_aberta_gera_falha);
   RUN_TEST(test_fim_de_curso_perdido_com_cancela_fechada_gera_falha);
   RUN_TEST(test_filtro_rejeita_pulso_curto_e_aceita_estavel);
+  RUN_TEST(test_entrada_automatica_conta_vaga_na_passagem);
+  RUN_TEST(test_lotado_nega_entrada_e_mantem_fechada);
+  RUN_TEST(test_operador_libera_saida_e_decrementa);
+  RUN_TEST(test_operador_libera_entrada_em_modo_manual);
+  RUN_TEST(test_autorizacao_expira_se_ninguem_passa);
+  RUN_TEST(test_liberar_em_falha_e_recusado);
   return UNITY_END();
 }

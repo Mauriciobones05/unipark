@@ -2,12 +2,38 @@
 
 Cancela automática para simular a entrada de veículos em um estacionamento. Um carrinho Hot Wheels é
 detectado por um sensor infravermelho, o ESP32 abre a cancela (servo SG90 + palito), confere se a passagem está
-livre e fecha confirmando a posição por um fim de curso. O painel web é servido **pelo próprio ESP32**, via Wi-Fi, sem internet.
+livre e fecha confirmando a posição por um fim de curso. O painel web (React) é servido **pelo próprio ESP32**, via Wi-Fi, sem internet.
 
 > **Status honesto do projeto**
-> ✅ Compilado com PlatformIO (firmware, `faultsim`, 7 testes de hardware e imagem LittleFS).
-> ✅ 17 testes de lógica executados no PC (`pio test -e native`), todos passaram.
-> ❌ **Nunca gravado em um ESP32 real nem testado com hardware.** Todos os valores de calibração (ângulos, tempos, filtros) são pontos de partida. Os resultados T01–T06 devem ser **medidos por você** (`docs/testes.md`).
+> ✅ Compilado com PlatformIO (firmware, `faultsim`, 7 testes de hardware e imagem LittleFS) e frontend React compilado com Vite.
+> ✅ 23 testes de lógica executados no PC (`pio test -e native`), todos passaram. O simulador do painel passou no roteiro `frontend/mock/smoke.mjs`.
+> ❌ **Nunca gravado em um ESP32 real nem testado com hardware**, e o painel React nunca foi aberto em um navegador contra o ESP32. Todos os valores de calibração são pontos de partida. Os resultados T01–T06 devem ser **medidos por você** (`docs/testes.md`).
+
+## Estacionamento (vagas, entrada e saída)
+
+A cancela é o portão de **entrada e saída** de um estacionamento simulado de **5 vagas** (`PARKING_CAPACITY` em `config.h`).
+
+- **Entrada automática** (modo automático): carro no sensor de chegada + vaga livre → abre com autorização de ENTRADA. Estacionamento lotado → a cancela **não abre** e o evento "Lotado: entrada negada" é registrado.
+- **A vaga só é contada quando o veículo cruza o sensor de passagem** (não no momento do comando). Sem passagem, a autorização expira ao fechar e nada é contado.
+- **Operador pelo painel:** `LIBERAR ENTRADA` (exige vaga livre) e `LIBERAR SAÍDA` (exige veículo dentro). Funcionam nos modos automático e manual, mantêm as proteções de obstáculo e falha, e só existe **uma** autorização pendente por vez.
+- `AJUSTAR OCUPAÇÃO` corrige a contagem (ex.: após reiniciar o ESP32, que volta a 0 vagas ocupadas; não há memória permanente).
+- Limitação: com um único sensor de passagem não dá para saber a direção nem se o objeto é um carro; a direção vem da **autorização** dada.
+
+## Rodar o painel sem ESP32 (simulador)
+
+Não tem a placa à mão? O painel traz um **simulador do ESP32** (mesma API, mesmos estados e tempos):
+
+```
+cd frontend
+npm install
+npm run dev          # abre http://localhost:5173 com o simulador
+```
+
+Aparece um cartão "Simulador" com botões: **Carro chega**, **Carro cruza a passagem**, **Colocar obstáculo**, **Soltar fim de curso** (simula falha). Fluxo de demonstração: *Carro chega* → a cancela abre → *Carro cruza a passagem* → vagas livres 5 → 4 → a cancela fecha sozinha. Para testar o simulador por script: `node mock/smoke.mjs 5173` (com o `dev` rodando e recém-iniciado).
+
+Com o ESP32 de volta: conecte o PC à rede `Cancela-ESP32` e use `npm run dev:esp` (mesmo painel, dados reais), ou grave tudo e abra `http://192.168.4.1`.
+
+> O simulador é uma cópia em JavaScript da lógica do firmware (`frontend/mock/simulator.js`); **não prova** que o firmware funciona. Ele nunca entra no build gravado no ESP32.
 
 ## Sumário da documentação
 
@@ -15,7 +41,7 @@ livre e fecha confirmando a posição por um fim de curso. O painel web é servi
 |---|---|
 | `docs/componentes.md` | Materiais, pinagem, decisões elétricas, limitações dos sensores |
 | `docs/montagem.md` | Tutorial de montagem na protoboard (iniciante) |
-| `docs/arquitetura.md` | Blocos, API REST, Wi-Fi, concorrência |
+| `docs/arquitetura.md` | Blocos, API REST, Wi-Fi, concorrência, frontend |
 | `docs/maquina_estados.md` | Estados, transições, falhas, recuperação |
 | `docs/testes.md` | Testes de hardware, T01–T06, desafios técnicos |
 | `docs/planilha_resultados.csv` | Planilha-modelo para os resultados reais |
@@ -26,7 +52,7 @@ livre e fecha confirmando a posição por um fim de curso. O painel web é servi
 |---|---|---|
 | 1 | ESP32 como controlador | `src/main.cpp` |
 | 2 | Sensor e atuador | FC-51 ×2, fim de curso, servo SG90 |
-| 3 | Wi-Fi para monitorar/comandar | AP + API REST + painel |
+| 3 | Wi-Fi para monitorar/comandar | AP + API REST + painel React |
 | 4 | Decisões locais pelo estado físico medido | `GateController` (independe do Wi-Fi) |
 | 5 | Estados, transições, comandos inválidos | `docs/maquina_estados.md` (409/400) |
 | 6 | Alimentação, níveis, acionamento | `docs/componentes.md` |
@@ -44,7 +70,8 @@ Cancela_Inteligente_ESP32/
 ├── platformio.ini           ambientes: esp32dev (principal), faultsim, hw_*, native
 ├── include/                 config.h (TUDO que se calibra), headers
 ├── src/                     main, GateController, SensorManager, ServoDriver, WebServerManager
-├── data/                    index.html, style.css, script.js  → LittleFS
+├── frontend/                código-fonte do painel em React (Vite)
+├── data/                    painel já compilado (index.html, app.js.gz, index.css.gz) → LittleFS
 ├── hardware_tests/          7 programas de teste (um por ambiente hw_*)
 ├── test/test_logica/        testes de lógica no PC (Unity)
 ├── tools/                   t03_comunicacao.ps1, metricas.ps1
@@ -70,6 +97,7 @@ Alimentação: ESP32 e sensores (3,3 V) pela USB; servo em **5 V externo ≥ 1 A
 2. Extensões → procure **PlatformIO IDE** → Instalar → reinicie o VS Code (a primeira instalação baixa ferramentas; leva alguns minutos).
 3. Driver USB: se a placa não aparecer em *Gerenciador de Dispositivos → Portas*, instale o driver CP210x ou CH340 conforme o chip da sua placa.
 4. **File → Open Folder…** e escolha `Cancela_Inteligente_ESP32`. O PlatformIO baixa a plataforma `espressif32@6.9.0` na primeira vez (precisa de internet **apenas nessa etapa**).
+5. *(Opcional, só para alterar a interface)* Instale o **Node.js 20+** (https://nodejs.org).
 
 ## Compilar, gravar e usar
 
@@ -86,6 +114,20 @@ Pela barra inferior do VS Code (✓ Build, → Upload, 🔌 Serial Monitor) ou n
 
 ⚠️ **O frontend fica no sistema de arquivos, separado do firmware.** Grave **os dois** (`upload` e `uploadfs`). Sem o `uploadfs` a página mostra um aviso pedindo o comando. Se houver mais de uma porta, acrescente `--upload-port COMx`.
 Se o upload travar em "Connecting…", segure o botão **BOOT** da placa até começar a gravar.
+
+### Frontend (React)
+
+O painel é um app **React + Vite** em `frontend/`. A pasta `data/` já vem **compilada**: para apenas usar o projeto não é preciso Node. Para alterar a interface:
+
+```
+cd frontend
+npm install
+npm run build      # gera ../data (app.js.gz ≈ 70 KB, servido pelo ESP32)
+npm run dev        # painel + SIMULADOR do ESP32, sem hardware
+npm run dev:esp    # painel com /api encaminhada para o ESP32 real (192.168.4.1)
+```
+
+Depois do `build`, rode `uploadfs`. Com o PC conectado ao Wi-Fi do ESP32, o `dev:esp` mostra as mudanças ao vivo usando os dados reais.
 
 ### Conectar e acessar
 
@@ -104,7 +146,7 @@ Se o upload travar em "Connecting…", segure o botão **BOOT** da placa até co
 | `FILTER_*` | ver arquivo | Filtros dos sensores |
 | `AP_SSID` / `AP_PASSWORD` | Cancela-ESP32 / cancela123 | Rede Wi-Fi |
 
-Depois de qualquer mudança, recompile e grave de novo (`upload`; `uploadfs` só se mudar `data/`).
+Depois de qualquer mudança, recompile e grave de novo (`upload`; `uploadfs` só se mudar o frontend).
 
 ## Como testar sensores e servo
 
@@ -117,6 +159,7 @@ Siga `docs/testes.md` §1: `pio run -e hw_leds -t upload` (e `hw_arrival`, `hw_o
 3. **Passagem livre** por 3 s → FECHANDO. Obstáculo a qualquer momento → reabre.
 4. **Fim de curso** confirma → FECHADA. Não confirmou no prazo → FALHA.
 5. Botões do painel só **pedem**; a máquina de estados decide (200/400/409).
+6. A passagem do veículo pelo sensor de passagem atualiza as vagas (entrada: −1 vaga livre; saída: +1).
 
 ## Roteiro de apresentação (≈ 10 min)
 
@@ -128,6 +171,7 @@ Siga `docs/testes.md` §1: `pio run -e hw_leds -t upload` (e `hw_arrival`, `hw_o
 6. (2 min) Falha do fim de curso (ambiente `faultsim` ou fio desligado): FALHA, bloqueio de comandos, recuperação.
 7. (1 min) Resultados **medidos** T01–T06 e desafios técnicos (planilha preenchida).
 8. (1 min) Limitações e melhorias.
+
 Dica: tenha `config.h` aberto; o professor pode pedir mudar tempos, ângulos ou o SSID.
 
 ## Modelo de registro semanal (caderno de campo)
@@ -149,11 +193,12 @@ Próximos passos / responsável / prazo: ___________________________
 | Problema | Solução |
 |---|---|
 | Página diz "Interface nao encontrada" | Rode `pio run -e esp32dev -t uploadfs` |
+| Página em branco | Refaça `npm run build` e `uploadfs` (precisam existir `app.js.gz` e `index.css.gz` em `data/`) |
 | Rede Wi-Fi não aparece | Veja o monitor serial; reinicie a placa; troque `AP_CHANNEL` |
 | Celular não abre 192.168.4.1 | Desligue dados móveis; use `http://` (não https); esqueça e reconecte a rede |
 | Upload falha ("Connecting…") | Segure BOOT; cabo de dados; porta correta |
 | Servo treme ou o ESP32 reinicia | Fonte 5 V ≥ 1 A, GND comum, capacitor |
-| Sempre em FALHA | Fim de curso não aciona (fio, NO/NC, posição) — teste `hw_limit` |
+| Sempre em FALHA | Fim de curso não aciona (fio, NO/NC, posição): teste `hw_limit` |
 | Cancela reabre sozinha | Sensor de passagem pegando o próprio palito ou a bancada: reposicionar/ajustar potenciômetro |
 | Chegada não detecta | Aproximar, ajustar potenciômetro, reduzir `FILTER_ARRIVAL.onMs` |
 
@@ -162,11 +207,12 @@ Próximos passos / responsável / prazo: ___________________________
 - **Abertura nunca é confirmada fisicamente**, só estimada por tempo (um único fim de curso, na posição fechada).
 - Um fim de curso não diferencia causas (fio solto, chave desalinhada, servo sem energia): todas viram `FIM_CURSO_TIMEOUT`.
 - FC-51 sofre com luz ambiente, cor e brilho do carrinho; em 3,3 V o alcance é menor.
-- Sem autenticação nos comandos; segurança do acesso depende da senha do Wi-Fi (WPA2). Uso didático.
+- Sem autenticação nos comandos; a segurança do acesso depende da senha do Wi-Fi (WPA2). Uso didático.
 - AP aceita até 4 clientes. Não há persistência de log após reinício.
-- O firmware nunca foi gravado/testado em hardware pelo autor deste código; calibre e meça.
+- O servidor HTTP (`WebServer`) atende uma conexão por vez; o painel é pequeno (≈ 70 KB comprimido) para carregar rápido.
 - Placas com outro módulo (ex.: ESP32-WROVER) podem exigir outros pinos para GPIO 16/17.
 
 ## Dependências
 
-Nenhuma biblioteca externa. Usa apenas Arduino-ESP32 2.0.16 (via `espressif32@6.9.0`): `WiFi`, `WebServer`, `LittleFS`. O servo usa o LEDC (`ledcSetup`/`ledcAttachPin`, API do core 2.x; **não** atualize para o core 3.x sem adaptar `ServoDriver.cpp`).
+- **Firmware:** nenhuma biblioteca externa. Usa apenas Arduino-ESP32 2.0.16 (via `espressif32@6.9.0`): `WiFi`, `WebServer`, `LittleFS`. O servo usa o LEDC (`ledcSetup`/`ledcAttachPin`, API do core 2.x; **não** atualize para o core 3.x sem adaptar `ServoDriver.cpp`).
+- **Frontend (só no PC, para desenvolvimento):** React 19.3.1, Vite 8.3.6 e @vitejs/plugin-react 6.2.1, fixados em `frontend/package.json`. O ESP32 serve só os arquivos compilados.

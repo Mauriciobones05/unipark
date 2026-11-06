@@ -31,7 +31,9 @@ static const char* mimeOf(const String& p) {
 }
 
 void WebServerManager::serveFile(const String& path) {
-  if (!LittleFS.exists(path)) {
+  // O build do React gera app.js.gz / index.css.gz (menores na flash e no Wi-Fi).
+  bool gz = LittleFS.exists(path + ".gz");
+  if (!gz && !LittleFS.exists(path)) {
     if (path == "/index.html") {
       server.send(200, "text/html; charset=utf-8",
                   "<h1>Cancela ESP32</h1><p>Interface nao encontrada no LittleFS.</p>"
@@ -41,8 +43,9 @@ void WebServerManager::serveFile(const String& path) {
     }
     return;
   }
-  File f = LittleFS.open(path, "r");
+  File f = LittleFS.open(gz ? path + ".gz" : path, "r");
   server.sendHeader("Cache-Control", "no-cache");
+  if (gz) server.sendHeader("Content-Encoding", "gzip");
   server.streamFile(f, mimeOf(path));
   f.close();
 }
@@ -73,6 +76,13 @@ void WebServerManager::sendStatus() {
   b += ",\"enabled\":"; b += s.servoEnabled ? "true" : "false"; b += "}";
   b += ",\"leds\":{\"green\":"; b += s.ledGreen ? "true" : "false";
   b += ",\"red\":"; b += s.ledRed ? "true" : "false"; b += "}";
+  b += ",\"parking\":{\"capacity\":"; b += s.capacity;
+  b += ",\"occupied\":"; b += s.occupied;
+  b += ",\"free\":"; b += (s.capacity - s.occupied);
+  b += ",\"auth\":\""; b += authName(s.auth);
+  b += "\",\"entries\":"; b += s.metrics.entries;
+  b += ",\"exits\":"; b += s.metrics.exits;
+  b += ",\"deniedFull\":"; b += s.metrics.deniedFull; b += "}";
   b += ",\"wifi\":{\"ssid\":\"" AP_SSID "\",\"stations\":"; b += WiFi.softAPgetStationNum();
   b += ",\"apUp\":"; b += (WiFi.getMode() & WIFI_AP) ? "true" : "false"; b += "}";
   b += ",\"faultSim\":{\"enabled\":"; b += ENABLE_FAULT_SIM ? "true" : "false";
@@ -137,6 +147,19 @@ void WebServerManager::registerRoutes() {
   });
   server.on("/api/reset-fault", HTTP_POST, [this] {
     CmdResult r; { GateLock l; r = gate_.requestResetFault(); } sendResult(r);
+  });
+  server.on("/api/release-entry", HTTP_POST, [this] {
+    CmdResult r; { GateLock l; r = gate_.requestReleaseEntry(); } sendResult(r);
+  });
+  server.on("/api/release-exit", HTTP_POST, [this] {
+    CmdResult r; { GateLock l; r = gate_.requestReleaseExit(); } sendResult(r);
+  });
+  server.on("/api/parking/occupied", HTTP_POST, [this] {
+    String v = server.arg("value");
+    bool digits = v.length() > 0 && v.length() <= 4;
+    for (unsigned i = 0; i < v.length(); i++) if (!isDigit(v[i])) digits = false;
+    if (!digits) { sendResult({false, 400, "Parametro 'value' deve ser um numero inteiro >= 0"}); return; }
+    CmdResult r; { GateLock l; r = gate_.requestSetOccupied((uint16_t)v.toInt()); } sendResult(r);
   });
   server.on("/api/mode", HTTP_POST, [this] {
     String m = server.arg("mode");   // aceita query string ou corpo form-urlencoded

@@ -12,6 +12,9 @@ enum class GateState : uint8_t { INICIALIZANDO, FECHADA, ABRINDO, ABERTA, FECHAN
 enum class GateMode  : uint8_t { AUTOMATICO, MANUAL };
 enum class FaultCode : uint8_t { NENHUMA, FIM_CURSO_TIMEOUT, FIM_CURSO_PRESO, FIM_CURSO_PERDIDO };
 
+enum class Auth : uint8_t { NENHUMA, ENTRADA, SAIDA };   // passagem autorizada aguardando o veiculo
+
+const char* authName(Auth a);
 const char* stateName(GateState s);
 const char* modeName(GateMode m);
 const char* faultName(FaultCode f);
@@ -50,6 +53,9 @@ struct GateMetrics {
   uint32_t faults = 0;               // total de falhas
   uint32_t lastFaultDetectMs = 0;    // T05: tempo entre inicio do fechamento e a falha por timeout
   uint32_t rejectedCommands = 0;     // comandos recusados (409)
+  uint32_t entries = 0;              // entradas contadas
+  uint32_t exits = 0;                // saidas contadas
+  uint32_t deniedFull = 0;           // veiculos barrados por estacionamento lotado
   uint32_t respTotal = 0;            // quantas respostas T01 ja foram medidas
   uint32_t respMs[RESP_LOG_SIZE] = {0};  // T01: ultimas medicoes deteccao -> inicio da abertura (anel)
 };
@@ -61,6 +67,8 @@ struct GateStatus {
   bool      arrival, obstacle, limit;
   float     servoAngle; bool servoEnabled;
   bool      ledGreen, ledRed;
+  Auth      auth;
+  uint16_t  capacity, occupied;
   GateMetrics metrics;
   uint8_t   eventCount; GateEvent events[EVENT_LOG_SIZE];  // do mais antigo para o mais novo
 };
@@ -79,6 +87,9 @@ class GateController {
   CmdResult requestClose();
   CmdResult requestMode(GateMode m);
   CmdResult requestResetFault();
+  CmdResult requestReleaseEntry();             // operador libera UMA entrada (exige vaga livre)
+  CmdResult requestReleaseExit();              // operador libera UMA saida (exige veiculo dentro)
+  CmdResult requestSetOccupied(uint16_t n);    // ajuste manual da ocupacao (0..capacidade)
 
   // ---- Saidas para o hardware ----
   bool  servoEnabled() const { return servoEnabled_; }  // false = nao gerar PWM
@@ -86,6 +97,9 @@ class GateController {
   bool  ledGreen() const;
   bool  ledRed() const;
 
+  Auth      auth() const { return auth_; }
+  uint16_t  occupied() const { return occupied_; }
+  uint16_t  capacity() const { return cfg_.capacity; }
   GateState state() const { return state_; }
   GateMode  mode() const  { return mode_; }
   FaultCode fault() const { return fault_; }
@@ -104,6 +118,8 @@ class GateController {
   bool obstacleBlocked() const { return in_.obstacle || in_.obstacleRaw; }
   void moveToward(float target, float degPerMs, uint32_t dt);
   void recordResponse(uint32_t ms);
+  CmdResult release(Auth a);
+  void completePassage();
 
   GateConfig cfg_;
   GateInputs in_;
@@ -116,6 +132,10 @@ class GateController {
   bool       limitWaiting_ = false;    // servo ja chegou no angulo fechado, aguardando fim de curso
   uint32_t   limitWaitSince_ = 0;
   uint32_t   closeStartedAt_ = 0;
+  Auth       auth_ = Auth::NENHUMA;
+  uint16_t   occupied_ = 0;
+  bool       prevObstacle_ = false;
+  bool       arrivalHandled_ = false;  // o veiculo que esta no sensor de chegada ja foi tratado
   GateMetrics metrics_;
   GateEvent  events_[EVENT_LOG_SIZE];
   uint8_t    evHead_ = 0, evCount_ = 0;

@@ -29,6 +29,9 @@ constexpr FilterTimes FILTER_ARRIVAL  = {60, 150};   // chegada: rejeita ruido, 
 constexpr FilterTimes FILTER_OBSTACLE = {20, 300};   // passagem: detecta rapido, so libera apos 300 ms estavel
 constexpr FilterTimes FILTER_LIMIT    = {30, 30};    // fim de curso: elimina repique mecanico
 
+// ---------- Estacionamento (simulado) ----------
+constexpr uint16_t PARKING_CAPACITY = 5;   // total de vagas
+
 // ---------- Parametros da cancela (calibrar no hardware real!) ----------
 struct GateConfig {
   float    angleClosed      = 0.0f;     // graus com o palito horizontal (FECHADA)
@@ -39,6 +42,8 @@ struct GateConfig {
   uint32_t limitConfirmMs   = 1500;     // apos o servo chegar ao angulo fechado, tempo maximo ate o fim de curso acionar
   uint32_t openStuckMs      = 600;      // fim de curso ainda acionado com cancela ABERTA por este tempo => FALHA
   uint32_t limitLostMs      = 400;      // fim de curso liberado com cancela FECHADA por este tempo => FALHA
+  uint16_t capacity         = PARKING_CAPACITY;  // vagas do estacionamento
+  uint32_t authWaitMs       = 8000;     // com autorizacao pendente, tempo minimo de passagem livre antes de fechar
 };
 
 // ---------- Wi-Fi (Access Point) ----------

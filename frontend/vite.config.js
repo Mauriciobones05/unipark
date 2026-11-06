@@ -1,10 +1,14 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import mockPlugin from './mock/mockPlugin.js';
 
-// O build vai direto para ../data (pasta do LittleFS). Nomes SEM hash para o ESP32 servir sempre os mesmos caminhos.
-// Em desenvolvimento (npm run dev), as chamadas /api sao encaminhadas para o ESP32 (ajuste o IP se precisar).
-export default defineConfig({
-  plugins: [react()],
+// npm run dev      -> painel + SIMULADOR do ESP32 (nao precisa de hardware)
+// npm run dev:esp  -> painel + /api encaminhada para o ESP32 real (PC conectado ao Wi-Fi Cancela-ESP32)
+// npm run build    -> gera ../data (LittleFS). O simulador nunca entra no build.
+export default defineConfig(({ mode }) => {
+const useEsp = mode === 'esp';
+return {
+  plugins: [react(), ...(useEsp ? [] : [mockPlugin()])],
   base: '/',
   build: {
     outDir: '../data',
@@ -13,5 +17,6 @@ export default defineConfig({
       output: { entryFileNames: 'app.js', assetFileNames: '[name][extname]' },
     },
   },
-  server: { proxy: { '/api': 'http://192.168.4.1' } },
+  server: { proxy: useEsp ? { '/api': 'http://192.168.4.1' } : {} },
+};
 });

@@ -48,6 +48,16 @@ stateDiagram-v2
 Transições **proibidas** (não existem no código): FECHADA→FECHANDO, ABRINDO→FECHANDO,
 FALHA→ABRINDO/ABERTA, qualquer saída de FALHA sem `reset-fault`.
 
+## Comandos de estacionamento
+
+| Comando | Condições (senão 409) |
+|---|---|
+| `release-entry` | Sem FALHA/INICIALIZANDO; há vaga livre; nenhuma autorização pendente |
+| `release-exit` | Sem FALHA/INICIALIZANDO; há veículo dentro; nenhuma autorização pendente |
+| `parking/occupied` | Valor numérico (400 se inválido ou acima da capacidade) |
+
+Em FECHADA/FECHANDO o comando inicia a abertura (reabrir é seguro); em ABRINDO/ABERTA apenas registra a autorização. A contagem ocorre na passagem (sensor de passagem), nunca no comando.
+
 ## Prioridade das condições de segurança
 
 1. Obstáculo (filtrado **ou** bruto) em FECHANDO → reabre imediatamente. Vence qualquer comando.

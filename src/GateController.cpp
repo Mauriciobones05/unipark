@@ -15,6 +15,7 @@ const char* stateName(GateState s) {
   }
   return "?";
 }
+const char* authName(Auth a) { return a == Auth::ENTRADA ? "ENTRADA" : a == Auth::SAIDA ? "SAIDA" : "NENHUMA"; }
 const char* modeName(GateMode m) { return m == GateMode::AUTOMATICO ? "AUTOMATICO" : "MANUAL"; }
 const char* faultName(FaultCode f) {
   switch (f) {
@@ -53,6 +54,10 @@ void GateController::recordResponse(uint32_t ms) {
 
 // ---------------------------------------------------------------- transicoes
 void GateController::setState(GateState s, const char* why) {
+  if ((s == GateState::FECHADA || s == GateState::FALHA) && auth_ != Auth::NENHUMA) {
+    auth_ = Auth::NENHUMA;                       // autorizacao so vale enquanto a cancela esta aberta
+    logEvent("Autorizacao expirou sem passagem");
+  }
   state_ = s;
   stateSince_ = in_.now;
   logEvent(why);
@@ -105,6 +110,13 @@ void GateController::update(const GateInputs& in) {
   uint32_t dt = in.now - lastUpdate_;
   lastUpdate_ = in.now;
   in_ = in;
+  if (!in.arrival) arrivalHandled_ = false;
+  else if (state_ != GateState::FECHADA) arrivalHandled_ = true;   // mesmo carro, ja tratado
+  // Passagem concluida = obstaculo apareceu e sumiu enquanto ha autorizacao.
+  if (auth_ != Auth::NENHUMA && prevObstacle_ && !in.obstacle &&
+      (state_ == GateState::ABRINDO || state_ == GateState::ABERTA || state_ == GateState::FECHANDO))
+    completePassage();
+  prevObstacle_ = in.obstacle;
   const float openRate  = fabsf(cfg_.angleOpen - cfg_.angleClosed) / (float)cfg_.travelOpenMs;
   const float closeRate = fabsf(cfg_.angleOpen - cfg_.angleClosed) / (float)cfg_.travelCloseMs;
 
@@ -123,9 +135,16 @@ void GateController::update(const GateInputs& in) {
     case GateState::FECHADA:
       if (!in_.limit && elapsedMs(in_.now, in_.limitChangedAt) >= cfg_.limitLostMs) {
         enterFault(FaultCode::FIM_CURSO_PERDIDO);
-      } else if (mode_ == GateMode::AUTOMATICO && in_.arrival) {
-        recordResponse(elapsedMs(in_.now, in_.arrivalRawSince));   // T01
-        startOpening("Veiculo detectado: abrindo");
+      } else if (mode_ == GateMode::AUTOMATICO && in_.arrival && !arrivalHandled_) {
+        arrivalHandled_ = true;
+        if (occupied_ >= cfg_.capacity) {
+          metrics_.deniedFull++;
+          logEvent("Lotado: entrada negada");
+        } else {
+          recordResponse(elapsedMs(in_.now, in_.arrivalRawSince));   // T01
+          auth_ = Auth::ENTRADA;
+          startOpening("Veiculo detectado: abrindo");
+        }
       }
       break;
 
@@ -141,7 +160,9 @@ void GateController::update(const GateInputs& in) {
       } else if (mode_ == GateMode::AUTOMATICO && !obstacleBlocked()) {
         // Passagem livre ha closeDelayMs: contagem recomeca a cada obstaculo.
         uint32_t base = (int32_t)(in_.obstacleChangedAt - stateSince_) > 0 ? in_.obstacleChangedAt : stateSince_;
-        if (elapsedMs(in_.now, base) >= cfg_.closeDelayMs) startClosing("Passagem livre: fechando");
+        uint32_t wait = cfg_.closeDelayMs;
+        if (auth_ != Auth::NENHUMA && cfg_.authWaitMs > wait) wait = cfg_.authWaitMs;   // da tempo do veiculo chegar
+        if (elapsedMs(in_.now, base) >= wait) startClosing("Passagem livre: fechando");
       }
       break;
 
@@ -245,6 +266,45 @@ CmdResult GateController::requestResetFault() {
   return {true, 200, "Recuperacao iniciada: uma tentativa de fechamento"};
 }
 
+void GateController::completePassage() {
+  if (auth_ == Auth::ENTRADA) {
+    if (occupied_ < cfg_.capacity) occupied_++;
+    metrics_.entries++;
+    logEvent("Entrada concluida: vaga ocupada");
+  } else {
+    if (occupied_ > 0) occupied_--;
+    metrics_.exits++;
+    logEvent("Saida concluida: vaga liberada");
+  }
+  auth_ = Auth::NENHUMA;
+}
+
+CmdResult GateController::release(Auth a) {
+  const bool entry = (a == Auth::ENTRADA);
+  const char* why = nullptr;
+  if (state_ == GateState::FALHA) why = "Em FALHA: recupere a falha antes";
+  else if (state_ == GateState::INICIALIZANDO) why = "Sistema inicializando";
+  else if (entry && occupied_ >= cfg_.capacity) why = "Estacionamento lotado: sem vagas";
+  else if (!entry && occupied_ == 0) why = "Estacionamento vazio: nenhuma saida a liberar";
+  else if (auth_ != Auth::NENHUMA) why = "Ja existe uma passagem autorizada aguardando o veiculo";
+  if (why) { metrics_.rejectedCommands++; return {false, 409, why}; }
+
+  auth_ = a;
+  const char* ev = entry ? "Operador liberou ENTRADA" : "Operador liberou SAIDA";
+  if (state_ == GateState::FECHADA || state_ == GateState::FECHANDO) startOpening(ev);   // reabrir e seguro
+  else logEvent(ev);                                                                     // ja aberta/abrindo
+  return {true, 200, entry ? "Entrada liberada: aguardando o veiculo" : "Saida liberada: aguardando o veiculo"};
+}
+CmdResult GateController::requestReleaseEntry() { return release(Auth::ENTRADA); }
+CmdResult GateController::requestReleaseExit()  { return release(Auth::SAIDA); }
+
+CmdResult GateController::requestSetOccupied(uint16_t n) {
+  if (n > cfg_.capacity) return {false, 400, "Ocupacao acima da capacidade"};
+  occupied_ = n;
+  logEvent("Operador ajustou a ocupacao");
+  return {true, 200, "Ocupacao ajustada"};
+}
+
 // ---------------------------------------------------------------- saidas
 bool GateController::ledGreen() const {
   return state_ == GateState::ABERTA && fault_ == FaultCode::NENHUMA;
@@ -265,6 +325,7 @@ GateStatus GateController::status() const {
   s.arrival = in_.arrival; s.obstacle = in_.obstacle; s.limit = in_.limit;
   s.servoAngle = angle_; s.servoEnabled = servoEnabled_;
   s.ledGreen = ledGreen(); s.ledRed = ledRed();
+  s.auth = auth_; s.capacity = cfg_.capacity; s.occupied = occupied_;
   s.metrics = metrics_;
   s.eventCount = evCount_;
   uint8_t start = (evHead_ + EVENT_LOG_SIZE - evCount_) % EVENT_LOG_SIZE;

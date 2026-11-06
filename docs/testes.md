@@ -6,7 +6,8 @@
 |---|---|
 | Firmware principal e 7 programas de teste de hardware **compilam** (PlatformIO, espressif32 6.9.0) | ✅ executado |
 | Imagem LittleFS (`buildfs`) gerada | ✅ executado |
-| 17 testes de lógica no PC (`pio test -e native`) | ✅ executado, 17/17 passaram. Validam a máquina de estados com sensores simulados |
+| 23 testes de lógica no PC (`pio test -e native`) | ✅ executado, 23/23 passaram (inclui vagas, lotação, entrada/saída, expiração de autorização) |
+| Simulador do painel (`node frontend/mock/smoke.mjs`) | ✅ executado, passou. Valida a API simulada, não o firmware |
 | Gravação no ESP32 e qualquer teste com hardware | ❌ **NÃO executado** (sem hardware disponível ao desenvolver) |
 | Resultados T01 a T06 | ⬜ **A medir por você**; as tabelas abaixo estão vazias de propósito |
 
@@ -30,6 +31,14 @@ pio run -e <ambiente> -t upload ; pio device monitor
 | 7 | `hw_http` | `t7_http.cpp` | `http://192.168.4.1/` mostra "ola do ESP32" |
 
 Ordem sugerida: 1 → 5 → 2 → 3 → 6 → 7 → 4 (servo por último, já com a fonte externa e o palito sem tocar na bancada).
+
+## 1b. Teste do estacionamento no hardware (a executar)
+
+1. Modo automático, 5 vagas livres. Aproxime o carrinho do sensor de chegada: a cancela abre; as vagas **só diminuem depois** que o carrinho cruzar o sensor de passagem.
+2. Repita até lotar: a 6ª tentativa **não abre** e o painel mostra LOTADO.
+3. `LIBERAR SAÍDA` + passagem: as vagas livres sobem 1. `LIBERAR ENTRADA` com lotado: recusado (409).
+4. Autorização sem passagem: libere a entrada e não passe nada; a cancela fecha e a contagem não muda.
+5. Registre os resultados na planilha.
 
 ## 2. Testes de lógica no PC
 

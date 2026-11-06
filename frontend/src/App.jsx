@@ -66,6 +66,63 @@ function Metrics({ m }) {
   );
 }
 
+function Parking({ p, off, state, send }) {
+  const [value, setValue] = useState('');
+  const full = p.free === 0;
+  const busyState = state === 'FALHA' || state === 'INICIALIZANDO';
+  const pending = p.auth !== 'NENHUMA';
+  const canEntry = !off && !busyState && !full && !pending;
+  const canExit = !off && !busyState && p.occupied > 0 && !pending;
+  return (
+    <section className="card wide">
+      <h2>Estacionamento</h2>
+      <div className="lot">
+        <div className="lot-count">
+          <span className={'big ' + (full ? 'full' : '')}>{p.free}</span>
+          <span className="of">vagas livres de {p.capacity}</span>
+          {full && <span className="tag on">LOTADO</span>}
+        </div>
+        <div className="slots" aria-label={`${p.occupied} de ${p.capacity} vagas ocupadas`}>
+          {Array.from({ length: p.capacity }, (_, i) => (
+            <div key={i} className={'slot ' + (i < p.occupied ? 'busy' : 'free')}>{i + 1}</div>
+          ))}
+        </div>
+      </div>
+      <Row label="Passagem autorizada">
+        {pending ? <span className="tag on">Aguardando veículo ({p.auth === 'ENTRADA' ? 'entrada' : 'saída'})</span> : 'Nenhuma'}
+      </Row>
+      <Row label="Entradas / Saídas / Barrados por lotação">{p.entries} / {p.exits} / {p.deniedFull}</Row>
+      <div className="btns two">
+        <button disabled={!canEntry} onClick={() => send('release-entry')}>LIBERAR ENTRADA</button>
+        <button disabled={!canExit} onClick={() => send('release-exit')}>LIBERAR SAÍDA</button>
+      </div>
+      <form className="adjust" onSubmit={e => { e.preventDefault(); if (value !== '') send('parking/occupied', { value }); }}>
+        <label>Ajustar ocupação
+          <input type="number" min="0" max={p.capacity} value={value} onChange={e => setValue(e.target.value)} placeholder={`0 a ${p.capacity}`} />
+        </label>
+        <button type="submit" disabled={off || value === ''}>AJUSTAR</button>
+      </form>
+      <p className="hint">A vaga só é contada quando o veículo cruza o sensor de passagem. Entrada automática: o carro no sensor de chegada abre se houver vaga.</p>
+    </section>
+  );
+}
+
+function SimPanel({ sim, off, send }) {
+  return (
+    <section className="card wide sim">
+      <h2>Simulador (sem hardware)</h2>
+      <p className="hint">Você está vendo o simulador do ESP32. Use os botões para mexer nos “sensores” virtuais.</p>
+      <div className="btns two">
+        <button disabled={off} onClick={() => send('sim/car')}>CARRO CHEGA (sensor de chegada)</button>
+        <button disabled={off} onClick={() => send('sim/pass')}>CARRO CRUZA A PASSAGEM</button>
+        <button disabled={off} onClick={() => send('sim/obstacle', { on: sim.obstacle ? '0' : '1' })}>{sim.obstacle ? 'REMOVER OBSTÁCULO' : 'COLOCAR OBSTÁCULO'}</button>
+        <button disabled={off} onClick={() => send('sim/limit', { masked: '1' })}>SOLTAR FIM DE CURSO (simula falha)</button>
+        <button disabled={off} onClick={() => send('sim/limit', { masked: '0' })}>RESTAURAR FIM DE CURSO</button>
+      </div>
+    </section>
+  );
+}
+
 export default function App() {
   const { status: s, metrics, lost } = usePolling();
   const [busy, setBusy] = useState(false);
@@ -113,6 +170,7 @@ export default function App() {
       </header>
 
       {lost && <div className="banner banner-error">Conexão com o ESP32 perdida. Os valores abaixo estão desatualizados e os comandos foram desativados.</div>}
+      {s.parking.free === 0 && <div className="banner banner-warn">Estacionamento LOTADO: novas entradas serão barradas.</div>}
       {s.fault.code !== 'NENHUMA' && (
         <div className="banner banner-error">
           FALHA: {s.fault.message} ({s.fault.code}). Corrija a causa física e use "Recuperar falha".
@@ -120,6 +178,8 @@ export default function App() {
       )}
 
       <main>
+        <Parking p={s.parking} off={off} state={st} send={send} />
+
         <section className="card">
           <h2>Cancela</h2>
           <div className={'state s-' + st}>{STATE_TXT[st] || st}</div>
@@ -144,7 +204,7 @@ export default function App() {
         <section className="card">
           <h2>Controles</h2>
           <div className="btns">
-            <button disabled={!canOpen} onClick={() => send('open')}>ABRIR CANCELA</button>
+            <button disabled={!canOpen} onClick={() => send('open')}>ABRIR (SEM CONTAR VAGA)</button>
             <button disabled={!canClose} onClick={() => send('close')}>FECHAR CANCELA</button>
             <button disabled={off || s.mode === 'AUTOMATICO'} onClick={() => send('mode', { mode: 'auto' })}>ATIVAR MODO AUTOMÁTICO</button>
             <button disabled={off || s.mode === 'MANUAL'} onClick={() => send('mode', { mode: 'manual' })}>ATIVAR MODO MANUAL</button>
@@ -158,6 +218,8 @@ export default function App() {
           <h2>Medições (T01 / T02)</h2>
           <Metrics m={metrics} />
         </section>
+
+        {s.simulator && <SimPanel sim={s.sim} off={off} send={send} />}
 
         <section className="card wide">
           <h2>Eventos</h2>
