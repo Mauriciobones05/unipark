@@ -18,7 +18,7 @@ function Brand({ compact }: { compact?: boolean }) {
 export function AppShell({ route, children }: { route: string; children: ReactNode }) {
   const { status, lost } = useGate();
   const { theme, toggle } = useTheme();
-  const items = NAV.filter(n => !n.onlySimulator || status?.simulator);
+  const items = NAV;
   const fault = status && status.fault.code !== 'NENHUMA';
   const full = status && status.parking.free === 0;
 
@@ -54,7 +54,6 @@ export function AppShell({ route, children }: { route: string; children: ReactNo
         <div className="space-y-1 border-t border-[var(--border)] p-4 text-xs text-[var(--text-muted)]">
           <p className="font-semibold text-[var(--text)]">{status?.wifi.ssid ?? 'Cancela-ESP32'}</p>
           <p>{status ? `Ligado há ${fmtDuration(status.uptimeMs)}` : 'Aguardando a placa…'}</p>
-          {status?.simulator && <p className="font-semibold text-amber-600">Modo simulador</p>}
         </div>
       </aside>
 

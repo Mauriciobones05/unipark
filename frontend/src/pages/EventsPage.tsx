@@ -5,12 +5,12 @@ import { EventList } from '@/components/gate/EventList';
 import { Loading } from './Loading';
 
 export function EventsPage() {
-  const { status: s, lost } = useGate();
+  const { status: s, lost, eventLog } = useGate();
   if (!s) return <Loading lost={lost} />;
   return (
     <>
-      <PageHeader title="Eventos" subtitle="Últimos 12 eventos guardados pela placa. O horário é o tempo desde que o ESP32 ligou (mm:ss)." />
-      <Card><EventList events={s.events} /></Card>
+      <PageHeader title="Eventos" subtitle="Histórico salvo neste navegador (a placa guarda só os últimos 12). Continua após recarregar a página ou reiniciar o ESP32." />
+      <Card><EventList events={eventLog} /></Card>
     </>
   );
 }

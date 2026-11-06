@@ -3,7 +3,8 @@ export type GateState = 'INICIALIZANDO' | 'FECHADA' | 'ABRINDO' | 'ABERTA' | 'FE
 export type GateMode = 'AUTOMATICO' | 'MANUAL';
 export type Auth = 'NENHUMA' | 'ENTRADA' | 'SAIDA';
 
-export interface GateEvent { t: number; msg: string }
+/** `t` = ms desde o boot da placa; `at` = relógio do navegador (só nos eventos guardados em cache) */
+export interface GateEvent { t: number; msg: string; at?: number }
 
 export interface Status {
   state: GateState;

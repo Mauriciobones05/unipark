@@ -1,14 +1,22 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { api, postCommand } from '@/api/client';
-import type { Metrics, Status } from '@/api/types';
+import type { GateEvent, Metrics, Status } from '@/api/types';
+import { load, save } from '@/lib/store';
 import { useToast } from './ToastContext';
 
 const POLL_MS = 500;           // consulta de /api/status
 const LOST_AFTER_MS = 2500;    // sem resposta válida por este tempo => "conexão perdida"
 const METRICS_EVERY = 6;       // /api/metrics a cada N consultas
-const HISTORY_MAX = 40;
+const HISTORY_MAX = 200;
+const EVENTS_MAX = 300;
+const K_HISTORY = 'unipark.history.v1';
+const K_EVENTS = 'unipark.events.v1';
+const K_BOOT = 'unipark.boot.v1';
 
 export interface OccupancyPoint { t: number; occupied: number }
+/** Evento da placa guardado no navegador. `boot` identifica a "vida" do ESP32 (o `t` recomeça a cada reinício). */
+interface StoredEvent extends GateEvent { at: number; boot: number }
+const evKey = (e: { boot: number; t: number; msg: string }) => `${e.boot}:${e.t}:${e.msg}`;
 
 interface GateApi {
   status: Status | null;
@@ -18,6 +26,8 @@ interface GateApi {
   /** true enquanto um comando está em andamento (evita cliques repetidos) */
   busy: boolean;
   history: OccupancyPoint[];
+  /** todos os eventos já vistos, mais novo primeiro, salvos no navegador */
+  eventLog: GateEvent[];
   send: (cmd: string, form?: Record<string, string>) => Promise<boolean>;
 }
 
@@ -29,8 +39,11 @@ export function GateProvider({ children }: { children: ReactNode }) {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [lost, setLost] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [history, setHistory] = useState<OccupancyPoint[]>([]);
+  const [history, setHistory] = useState<OccupancyPoint[]>(() => load<OccupancyPoint[]>(K_HISTORY, []));
+  const [eventLog, setEventLog] = useState<StoredEvent[]>(() => load<StoredEvent[]>(K_EVENTS, []));
   const busyRef = useRef(false);
+  const logRef = useRef(eventLog);
+  const bootRef = useRef(load<number>(K_BOOT, 0));
 
   useEffect(() => {
     let alive = true;
@@ -46,9 +59,26 @@ export function GateProvider({ children }: { children: ReactNode }) {
         const s = r.body;
         setStatus(s);
         setLost(false);
-        setHistory(h => (h.length && h[h.length - 1].occupied === s.parking.occupied
-          ? h
-          : [...h, { t: Date.now(), occupied: s.parking.occupied }].slice(-HISTORY_MAX)));
+        setHistory(h => {
+          if (h.length && h[h.length - 1].occupied === s.parking.occupied) return h;
+          const next = [...h, { t: Date.now(), occupied: s.parking.occupied }].slice(-HISTORY_MAX);
+          save(K_HISTORY, next);
+          return next;
+        });
+
+        // Eventos: a placa só guarda os últimos 12. Acumulamos os novos (dedup por boot+t+msg).
+        const epoch = Date.now() - s.uptimeMs;
+        if (Math.abs(epoch - bootRef.current) > 5000) { bootRef.current = epoch; save(K_BOOT, epoch); }   // placa reiniciou
+        const boot = bootRef.current;
+        const seen = new Set(logRef.current.map(evKey));
+        const fresh = s.events
+          .map(e => ({ t: e.t, msg: e.msg, boot, at: boot + e.t }))
+          .filter(e => !seen.has(evKey(e)));
+        if (fresh.length) {
+          logRef.current = [...fresh, ...logRef.current].slice(0, EVENTS_MAX);
+          save(K_EVENTS, logRef.current);
+          setEventLog(logRef.current);
+        }
         if (tick++ % METRICS_EVERY === 0) {
           const m = await api<Metrics>('/api/metrics');
           if (alive && m.ok && m.body) setMetrics(m.body);
@@ -84,7 +114,7 @@ export function GateProvider({ children }: { children: ReactNode }) {
     }
   }, [toast]);
 
-  const value = useMemo(() => ({ status, metrics, lost, busy, history, send }), [status, metrics, lost, busy, history, send]);
+  const value = useMemo(() => ({ status, metrics, lost, busy, history, eventLog, send }), [status, metrics, lost, busy, history, eventLog, send]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

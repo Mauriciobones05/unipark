@@ -10,22 +10,24 @@ import { EventList } from '@/components/gate/EventList';
 import { ParkingLot } from '@/components/parking/ParkingLot';
 import { OccupancyChart } from '@/components/parking/OccupancyChart';
 import { ParkingControls } from '@/components/parking/ParkingControls';
+import { SystemBar } from '@/components/gate/SystemBar';
 import { STATE_LABEL, fmtDuration } from '@/lib/format';
 import { Loading } from './Loading';
 
 export function Dashboard() {
-  const { status: s, lost, history } = useGate();
+  const { status: s, lost, history, metrics } = useGate();
   if (!s) return <Loading lost={lost} />;
   const { parking } = s;
   const pct = Math.round((parking.occupied / parking.capacity) * 100);
+  const today = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }).format(new Date());
 
   return (
     <>
-      <PageHeader title="Painel" subtitle="Visão geral do estacionamento e da cancela em tempo real." />
+      <PageHeader title="Painel" subtitle={today.charAt(0).toUpperCase() + today.slice(1)} />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Vagas livres" icon={ParkingCircle} accent={parking.free === 0 ? 'rose' : 'emerald'} value={<AnimatedNumber value={parking.free} />} hint={`de ${parking.capacity} vagas`} />
-        <StatCard title="Ocupação" icon={CarFront} accent="brand" value={`${pct}%`} hint={`${parking.occupied} veículo(s) dentro`} delay={60} />
+        <StatCard title="Ocupação" icon={CarFront} accent="brand" value={`${pct}%`} hint={`${parking.occupied} veículo(s) dentro`} trend={history.map(p => p.occupied)} delay={60} />
         <StatCard title="Cancela" icon={Zap} accent={s.state === 'FALHA' ? 'rose' : s.state === 'ABERTA' ? 'emerald' : 'amber'} value={STATE_LABEL[s.state]} hint={`há ${fmtDuration(s.stateAgeMs)}`} delay={120} />
         <StatCard title="Entradas / Saídas" icon={ArrowLeftRight} accent="slate" value={`${parking.entries} / ${parking.exits}`} hint={`${parking.deniedFull} barrado(s) por lotação`} delay={180} />
       </div>
@@ -61,6 +63,8 @@ export function Dashboard() {
           <EventList events={s.events} limit={6} />
         </Card>
       </div>
+
+      <SystemBar status={s} metrics={metrics} lost={lost} />
     </>
   );
 }
