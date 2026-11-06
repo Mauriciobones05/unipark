@@ -33,14 +33,14 @@ flowchart LR
 | `ServoDriver` | PWM 50 Hz via LEDC (sem biblioteca externa) |
 | `WebServerManager` | AP, rotas HTTP, JSON, arquivos do LittleFS (com suporte a `.gz`) |
 | `main.cpp` | `loop()`: sensores → estados → saídas; sem `delay` na lógica |
-| `frontend/` | Código-fonte React (Vite): `App.jsx` (painel), `api.js` (fetch com timeout) |
+| `frontend/` | Painel UniPark (React + TypeScript + Tailwind): `context/GateContext.tsx` (polling e comandos), `pages/`, `components/` |
 | `data/` | Saída do build do frontend, gravada no LittleFS (`app.js.gz`, `index.css.gz`, `index.html`) |
 
 ## Frontend React
 
 - `npm run build` (em `frontend/`) gera `data/` com nomes fixos (sem hash) e comprime `app.js` e `index.css` em gzip (~70 KB no total). O ESP32 envia os `.gz` com `Content-Encoding: gzip`.
 - Node.js é necessário **só no PC** para recompilar a interface. O ESP32 serve arquivos estáticos.
-- O hook `usePolling` consulta `/api/status` a cada 500 ms e `/api/metrics` a cada 3 s. Sem resposta válida por 2,5 s: "Sem conexão", dados escurecidos e botões desativados.
+- O `GateProvider` consulta `/api/status` a cada 500 ms e `/api/metrics` a cada 3 s. Sem resposta válida por 2,5 s: "Sem conexão", dados escurecidos e botões desativados.
 - Um comando por vez (`busy`): evita cliques repetidos. Respostas 400/409/erros de rede viram mensagens ao usuário.
 
 ## Concorrência

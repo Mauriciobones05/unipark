@@ -1,54 +1,61 @@
-:root { --bg:#0f172a; --card:#1e293b; --txt:#e2e8f0; --mut:#94a3b8; --ok:#22c55e; --bad:#ef4444; --warn:#f59e0b; --blue:#3b82f6; }
-* { box-sizing: border-box; }
-body { margin:0; font-family: system-ui, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--txt); }
-header { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; }
-h1 { font-size:1.2rem; margin:0; }
-h2 { font-size:1rem; margin:0 0 10px; color:var(--mut); font-weight:600; }
-main { display:grid; grid-template-columns:repeat(auto-fit, minmax(290px, 1fr)); gap:12px; padding:0 12px 24px; max-width:1100px; margin:0 auto; }
-.card { background:var(--card); border-radius:12px; padding:14px; }
-.wide { grid-column:1 / -1; }
-.row { display:flex; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px solid #334155; font-size:.92rem; }
-.row:last-child { border-bottom:0; }
-.row span { color:var(--mut); }
-.row b { text-align:right; word-break:break-word; }
-.state { font-size:2rem; font-weight:700; text-align:center; padding:12px; border-radius:10px; margin-bottom:8px; background:#334155; }
-.s-FECHADA { background:#7f1d1d; } .s-ABERTA { background:#14532d; }
-.s-ABRINDO, .s-FECHANDO { background:#78350f; } .s-FALHA { background:var(--bad); animation:blink 1s infinite; }
-.s-INICIALIZANDO { background:#334155; }
-@keyframes blink { 50% { opacity:.55; } }
-.tag { padding:2px 10px; border-radius:999px; background:#334155; }
-.tag.on { background:var(--warn); color:#111; }
-.tag.ok { background:var(--ok); color:#111; }
-.pill { padding:4px 12px; border-radius:999px; font-size:.8rem; font-weight:600; }
-.pill-on { background:var(--ok); color:#111; } .pill-off { background:var(--bad); color:#fff; }
-.led { display:inline-block; width:12px; height:12px; border-radius:50%; background:#475569; vertical-align:middle; margin-left:6px; }
-.led.g { background:var(--ok); } .led.r { background:var(--bad); }
-.banner { margin:0 12px 12px; padding:10px 14px; border-radius:10px; font-weight:600; }
-.banner-error { background:var(--bad); color:#fff; }
-.btns { display:grid; gap:8px; }
-button { padding:14px; font-size:.95rem; font-weight:700; border:0; border-radius:10px; background:var(--blue); color:#fff; cursor:pointer; min-height:48px; }
-button.warn { background:var(--warn); color:#111; }
-button:disabled { background:#334155; color:#64748b; cursor:not-allowed; }
-.msg { min-height:1.4em; margin:10px 0 0; font-weight:600; }
-.msg.err { color:#fca5a5; } .msg.okk { color:#86efac; }
-.hint { color:var(--mut); font-size:.8rem; margin:6px 0 0; }
-.events { list-style:none; padding:0; margin:0; font-size:.85rem; max-height:260px; overflow:auto; }
-.events li { padding:4px 0; border-bottom:1px solid #334155; }
-.events time { color:var(--mut); margin-right:8px; }
-.lost main { opacity:.45; }
+@import "tailwindcss";
 
-.banner-warn { background: var(--warn); color: #111; }
-.btns.two { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-top: 10px; }
-.lot { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; padding: 4px 0 12px; }
-.lot-count { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-.lot-count .big { font-size: 3.4rem; font-weight: 800; color: var(--ok); line-height: 1; }
-.lot-count .big.full { color: var(--bad); }
-.lot-count .of { color: var(--mut); }
-.slots { display: flex; gap: 8px; flex-wrap: wrap; }
-.slot { width: 52px; height: 64px; border-radius: 8px; display: grid; place-items: center; font-weight: 700; border: 2px solid #475569; }
-.slot.free { background: #14532d; border-color: var(--ok); }
-.slot.busy { background: #7f1d1d; border-color: var(--bad); }
-.adjust { display: flex; gap: 8px; align-items: end; margin-top: 12px; flex-wrap: wrap; }
-.adjust label { display: grid; gap: 4px; font-size: .85rem; color: var(--mut); }
-.adjust input { padding: 12px; border-radius: 8px; border: 1px solid #475569; background: var(--bg); color: var(--txt); font-size: 1rem; width: 140px; }
-.sim { border: 1px dashed var(--warn); }
+/* Modo escuro por classe (.dark no <html>) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ── Tokens UniPark: azuis extraídos do logotipo (escuro #033E9C, claro #0081EF) ── */
+@theme {
+  --color-brand-50: #eaf3ff;
+  --color-brand-100: #d3e6ff;
+  --color-brand-200: #a9cfff;
+  --color-brand-300: #6db2fb;
+  --color-brand-400: #2c95f4;
+  --color-brand-500: #0081ef;
+  --color-brand-600: #0460c9;
+  --color-brand-700: #033e9c;
+  --color-brand-800: #052d74;
+  --color-brand-900: #061f4f;
+  --font-sans: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --animate-fade-up: fade-up 0.35s ease-out both;
+  --animate-pulse-ring: pulse-ring 1.6s ease-out infinite;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgb(239 68 68 / 0.55); }
+  100% { box-shadow: 0 0 0 10px rgb(239 68 68 / 0); }
+}
+
+/* Superfícies semânticas (claro/escuro) */
+:root {
+  --app-bg: #f1f5f9;
+  --surface: #ffffff;
+  --surface-muted: #f6f9fc;
+  --border: #dbe4ee;
+  --text: #0f1b33;
+  --text-muted: #5b6b85;
+}
+.dark {
+  --app-bg: #07122b;
+  --surface: #0d1c3d;
+  --surface-muted: #0a1735;
+  --border: #1d3260;
+  --text: #e6edf9;
+  --text-muted: #94a6c6;
+}
+
+@layer base {
+  html { color-scheme: light; }
+  html.dark { color-scheme: dark; }
+  body { background: var(--app-bg); color: var(--text); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+  button { cursor: pointer; }
+  button:disabled { cursor: not-allowed; }
+  :focus-visible { outline: 2px solid var(--color-brand-500); outline-offset: 2px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

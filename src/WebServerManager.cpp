@@ -27,6 +27,8 @@ static const char* mimeOf(const String& p) {
   if (p.endsWith(".js"))   return "application/javascript; charset=utf-8";
   if (p.endsWith(".json")) return "application/json";
   if (p.endsWith(".ico"))  return "image/x-icon";
+  if (p.endsWith(".png"))  return "image/png";
+  if (p.endsWith(".svg"))  return "image/svg+xml";
   return "text/plain";
 }
 

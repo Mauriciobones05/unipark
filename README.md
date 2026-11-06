@@ -1,8 +1,10 @@
-# Cancela Inteligente com ESP32
+<p align="center"><img src="frontend/public/unipark-logo.png" alt="UniPark" width="320"></p>
+
+# UniPark · Cancela Inteligente com ESP32
 
 Cancela automática para simular a entrada de veículos em um estacionamento. Um carrinho Hot Wheels é
 detectado por um sensor infravermelho, o ESP32 abre a cancela (servo SG90 + palito), confere se a passagem está
-livre e fecha confirmando a posição por um fim de curso. O painel web (React) é servido **pelo próprio ESP32**, via Wi-Fi, sem internet.
+livre e fecha confirmando a posição por um fim de curso. O painel web **UniPark** (React + Tailwind) é servido **pelo próprio ESP32**, via Wi-Fi, sem internet.
 
 > **Status honesto do projeto**
 > ✅ Compilado com PlatformIO (firmware, `faultsim`, 7 testes de hardware e imagem LittleFS) e frontend React compilado com Vite.
@@ -70,7 +72,7 @@ Cancela_Inteligente_ESP32/
 ├── platformio.ini           ambientes: esp32dev (principal), faultsim, hw_*, native
 ├── include/                 config.h (TUDO que se calibra), headers
 ├── src/                     main, GateController, SensorManager, ServoDriver, WebServerManager
-├── frontend/                código-fonte do painel em React (Vite)
+├── frontend/                painel UniPark (React + TypeScript + Tailwind, Vite)
 ├── data/                    painel já compilado (index.html, app.js.gz, index.css.gz) → LittleFS
 ├── hardware_tests/          7 programas de teste (um por ambiente hw_*)
 ├── test/test_logica/        testes de lógica no PC (Unity)
@@ -115,14 +117,21 @@ Pela barra inferior do VS Code (✓ Build, → Upload, 🔌 Serial Monitor) ou n
 ⚠️ **O frontend fica no sistema de arquivos, separado do firmware.** Grave **os dois** (`upload` e `uploadfs`). Sem o `uploadfs` a página mostra um aviso pedindo o comando. Se houver mais de uma porta, acrescente `--upload-port COMx`.
 Se o upload travar em "Connecting…", segure o botão **BOOT** da placa até começar a gravar.
 
-### Frontend (React)
+### Frontend (UniPark)
+
+Páginas: **Painel**, **Estacionamento**, **Cancela**, **Eventos**, **Desempenho** (e **Simulador**, só no modo de desenvolvimento). Tema claro/escuro, menu lateral no PC e barra inferior no celular. As cores vêm do logotipo (azul `#033E9C` e `#0081EF`).
+
+Estrutura de `frontend/src`: `api/` (cliente e tipos), `context/` (estado da cancela, tema, avisos), `layout/` (menu e cabeçalho), `components/` (ui, gate, parking), `pages/`, `lib/`.
+
+O logotipo com fundo transparente é gerado do `unipark.png` original por `npm run logo` (Python + Pillow + SciPy + NumPy); os PNG gerados já estão em `frontend/public`.
+
 
 O painel é um app **React + Vite** em `frontend/`. A pasta `data/` já vem **compilada**: para apenas usar o projeto não é preciso Node. Para alterar a interface:
 
 ```
 cd frontend
 npm install
-npm run build      # gera ../data (app.js.gz ≈ 70 KB, servido pelo ESP32)
+npm run build      # confere os tipos (tsc) e gera ../data (app.js.gz ≈ 84 KB, servido pelo ESP32)
 npm run dev        # painel + SIMULADOR do ESP32, sem hardware
 npm run dev:esp    # painel com /api encaminhada para o ESP32 real (192.168.4.1)
 ```
@@ -215,4 +224,4 @@ Próximos passos / responsável / prazo: ___________________________
 ## Dependências
 
 - **Firmware:** nenhuma biblioteca externa. Usa apenas Arduino-ESP32 2.0.16 (via `espressif32@6.9.0`): `WiFi`, `WebServer`, `LittleFS`. O servo usa o LEDC (`ledcSetup`/`ledcAttachPin`, API do core 2.x; **não** atualize para o core 3.x sem adaptar `ServoDriver.cpp`).
-- **Frontend (só no PC, para desenvolvimento):** React 19.3.1, Vite 8.3.6 e @vitejs/plugin-react 6.2.1, fixados em `frontend/package.json`. O ESP32 serve só os arquivos compilados.
+- **Frontend (só no PC, para desenvolvimento):** React 19.3.1, Tailwind CSS 4.3.5, lucide-react 1.70.0, TypeScript 7.0.2, Vite 8.3.6 e @vitejs/plugin-react 6.2.1, fixados em `frontend/package.json`. O ESP32 serve só os arquivos compilados.
