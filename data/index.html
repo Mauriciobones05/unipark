@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cancela Inteligente ESP32</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <h1>Cancela Inteligente</h1>
+  <span id="conn" class="pill pill-off">Conectando...</span>
+</header>
+
+<div id="lostBanner" class="banner banner-error" hidden>
+  Conexão com o ESP32 perdida. Os valores abaixo estão desatualizados e os comandos foram desativados.
+</div>
+<div id="faultBanner" class="banner banner-error" hidden></div>
+
+<main>
+  <section class="card">
+    <h2>Cancela</h2>
+    <div id="state" class="state">--</div>
+    <div class="row"><span>Modo</span><b id="mode">--</b></div>
+    <div class="row"><span>Há quanto tempo neste estado</span><b id="age">--</b></div>
+    <div class="row"><span>Ângulo do servo</span><b id="angle">--</b></div>
+    <div class="row"><span>LEDs</span><b><span id="ledG" class="led"></span> verde <span id="ledR" class="led"></span> vermelho</b></div>
+  </section>
+
+  <section class="card">
+    <h2>Sensores</h2>
+    <div class="row"><span>Chegada (GPIO 32)</span><b id="sArrival" class="tag">--</b></div>
+    <div class="row"><span>Passagem (GPIO 33)</span><b id="sObstacle" class="tag">--</b></div>
+    <div class="row"><span>Fim de curso (GPIO 26)</span><b id="sLimit" class="tag">--</b></div>
+    <div class="row"><span>Wi-Fi</span><b id="wifi">--</b></div>
+  </section>
+
+  <section class="card">
+    <h2>Controles</h2>
+    <div class="btns">
+      <button id="bOpen" data-cmd="open">ABRIR CANCELA</button>
+      <button id="bClose" data-cmd="close">FECHAR CANCELA</button>
+      <button id="bAuto" data-cmd="mode" data-arg="auto">ATIVAR MODO AUTOMÁTICO</button>
+      <button id="bManual" data-cmd="mode" data-arg="manual">ATIVAR MODO MANUAL</button>
+      <button id="bReset" data-cmd="reset-fault" class="warn">RECONHECER / RECUPERAR FALHA</button>
+    </div>
+    <p id="msg" class="msg" role="status" aria-live="polite"></p>
+    <p class="hint">Os botões apenas fazem pedidos: a cancela decide pelas regras de segurança (obstáculo, fim de curso, falha).</p>
+  </section>
+
+  <section class="card">
+    <h2>Medições (T01 / T02)</h2>
+    <div class="row"><span>Resposta detecção → abertura</span><b id="mResp">--</b></div>
+    <div class="row"><span>Últimas medições (ms)</span><b id="mList">--</b></div>
+    <div class="row"><span>Fechamentos bloqueados por obstáculo</span><b id="mBlock">--</b></div>
+    <div class="row"><span>Reaberturas por obstáculo</span><b id="mRev">--</b></div>
+    <div class="row"><span>Fechamentos iniciados com obstáculo</span><b id="mBad">--</b></div>
+    <div class="row"><span>Falhas / Tempo de detecção (T05)</span><b id="mFault">--</b></div>
+  </section>
+
+  <section class="card wide">
+    <h2>Eventos</h2>
+    <ul id="events" class="events"></ul>
+  </section>
+</main>
+<script src="/script.js"></script>
+</body>
+</html>
