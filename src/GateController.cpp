@@ -122,7 +122,10 @@ void GateController::update(const GateInputs& in) {
 
   switch (state_) {
     case GateState::INICIALIZANDO:
-      if (in_.limit) {
+      if (!cfg_.requireLimitSwitch && !obstacleBlocked()) {
+        angle_ = cfg_.angleClosed; servoEnabled_ = true;
+        setState(GateState::FECHADA, "Bancada: posicao fechada comandada");
+      } else if (cfg_.requireLimitSwitch && in_.limit) {
         angle_ = cfg_.angleClosed; servoEnabled_ = true;
         setState(GateState::FECHADA, "Fim de curso acionado: cancela fechada");
       } else if (!obstacleBlocked()) {
@@ -133,7 +136,7 @@ void GateController::update(const GateInputs& in) {
       break;  // com obstaculo: aguarda, sem gerar PWM
 
     case GateState::FECHADA:
-      if (!in_.limit && elapsedMs(in_.now, in_.limitChangedAt) >= cfg_.limitLostMs) {
+      if (cfg_.requireLimitSwitch && !in_.limit && elapsedMs(in_.now, in_.limitChangedAt) >= cfg_.limitLostMs) {
         enterFault(FaultCode::FIM_CURSO_PERDIDO);
       } else if (mode_ == GateMode::AUTOMATICO && in_.arrival && !arrivalHandled_) {
         arrivalHandled_ = true;
@@ -154,7 +157,7 @@ void GateController::update(const GateInputs& in) {
       break;
 
     case GateState::ABERTA:
-      if (in_.limit && elapsedMs(in_.now, in_.limitChangedAt) >= cfg_.openStuckMs &&
+      if (cfg_.requireLimitSwitch && in_.limit && elapsedMs(in_.now, in_.limitChangedAt) >= cfg_.openStuckMs &&
           elapsedMs(in_.now, stateSince_) >= cfg_.openStuckMs) {
         enterFault(FaultCode::FIM_CURSO_PRESO);
       } else if (mode_ == GateMode::AUTOMATICO && !obstacleBlocked()) {
@@ -173,11 +176,14 @@ void GateController::update(const GateInputs& in) {
         break;
       }
       moveToward(cfg_.angleClosed, closeRate, dt);
-      if (in_.limit) {
+      if (cfg_.requireLimitSwitch && in_.limit) {
         metrics_.closeCycles++;
         setState(GateState::FECHADA, "Fechada (fim de curso confirmou)");
       } else if (angle_ == cfg_.angleClosed) {
-        if (!limitWaiting_) { limitWaiting_ = true; limitWaitSince_ = in_.now; }
+        if (!cfg_.requireLimitSwitch) {
+          metrics_.closeCycles++;
+          setState(GateState::FECHADA, "Bancada: fechamento estimado por tempo");
+        } else if (!limitWaiting_) { limitWaiting_ = true; limitWaitSince_ = in_.now; }
         else if (elapsedMs(in_.now, limitWaitSince_) >= cfg_.limitConfirmMs) {
           metrics_.lastFaultDetectMs = elapsedMs(in_.now, closeStartedAt_);
           enterFault(FaultCode::FIM_CURSO_TIMEOUT);

@@ -31,7 +31,11 @@ export function GatePage() {
         <Card className="lg:col-span-2">
           <CardHeader title="Estado da cancela" icon={<Gauge className="size-4" />} action={<GateStateBadge state={s.state} />} subtitle={`Neste estado há ${fmtDuration(s.stateAgeMs)}`} />
           <div className="mx-auto max-w-xl text-brand-900 dark:text-brand-100"><GateVisual status={s} dim={lost} /></div>
-          <p className="mt-2 text-xs text-[var(--text-muted)]">A abertura é estimada por tempo; só o fechamento é confirmado fisicamente pelo fim de curso.</p>
+          <p className="mt-2 text-xs text-[var(--text-muted)]">
+            {s.benchMode
+              ? 'Modo de bancada: abertura e fechamento estimados pelo comando do servo, sem confirmação pelo fim de curso.'
+              : 'A abertura é estimada por tempo; só o fechamento é confirmado fisicamente pelo fim de curso.'}
+          </p>
         </Card>
 
         <Card>

@@ -7,6 +7,7 @@
     "dev": "vite",
     "dev:esp": "vite --mode esp",
     "typecheck": "tsc --noEmit",
+    "test:esp": "node tests/esp.integration.mjs",
     "build": "tsc --noEmit && vite build && node gzip.mjs",
     "logo": "python scripts/prepare_logo.py"
   },
@@ -20,6 +21,7 @@
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.2.1",
+    "playwright-core": "1.65.0",
     "tailwindcss": "4.3.5",
     "typescript": "7.0.2",
     "vite": "8.3.6"

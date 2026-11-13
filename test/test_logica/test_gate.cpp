@@ -16,6 +16,7 @@ static GateConfig fastCfg(uint16_t cap = 5) {
 struct Sim {
   GateController g;
   explicit Sim(uint16_t cap = 5) : g(fastCfg(cap)) {}
+  explicit Sim(const GateConfig& cfg) : g(cfg) {}
   GateInputs in;
   uint32_t t = 1000;
   void init(bool limit) {
@@ -285,6 +286,65 @@ void test_liberar_em_falha_e_recusado() {
   delete s;
 }
 
+static GateConfig benchCfg() {
+  GateConfig c = fastCfg(); c.requireLimitSwitch = false;
+  return c;
+}
+
+void test_bancada_ciclo_automatico_conta_passagem_e_fecha_sem_chave() {
+  Sim s(benchCfg()); s.init(false); s.run(1000);
+  TEST_ASSERT_EQUAL(GateState::FECHADA, s.st());
+  s.car(true); s.run(110); s.car(false);
+  TEST_ASSERT_EQUAL(GateState::ABERTA, s.st());
+  s.pass(); s.run(500);
+  TEST_ASSERT_EQUAL_UINT16(1, s.g.occupied());
+  TEST_ASSERT_EQUAL_UINT32(1, s.g.metrics().entries);
+  TEST_ASSERT_EQUAL_UINT32(1, s.g.metrics().closeCycles);
+  TEST_ASSERT_EQUAL(GateState::FECHADA, s.st());
+  TEST_ASSERT_EQUAL_FLOAT(0.0f, s.g.servoAngle());
+  TEST_ASSERT_EQUAL(FaultCode::NENHUMA, s.g.fault());
+}
+
+void test_bancada_chave_pressionada_nao_interrompe_movimento() {
+  Sim s(benchCfg()); s.init(true); s.run(5);
+  s.g.requestMode(GateMode::MANUAL);
+  TEST_ASSERT_TRUE(s.g.requestOpen().ok); s.run(1000);
+  TEST_ASSERT_EQUAL(GateState::ABERTA, s.st());
+  TEST_ASSERT_TRUE(s.g.requestClose().ok); s.run(100);
+  TEST_ASSERT_EQUAL(GateState::FECHANDO, s.st());
+  s.run(100);
+  TEST_ASSERT_EQUAL(GateState::FECHADA, s.st());
+  TEST_ASSERT_EQUAL_FLOAT(0.0f, s.g.servoAngle());
+  s.limit(false); s.run(1000);
+  TEST_ASSERT_EQUAL(FaultCode::NENHUMA, s.g.fault());
+}
+
+void test_bancada_obstaculo_bloqueia_fechamento_e_reabre_com_sinal_raw() {
+  Sim s(benchCfg()); s.init(false); s.run(5);
+  s.car(true); s.run(110); s.car(false);
+  s.obstacle(true); s.run(1000);
+  TEST_ASSERT_EQUAL(GateState::ABERTA, s.st());
+  TEST_ASSERT_EQUAL(409, s.g.requestClose().http);
+  s.obstacle(false); s.run(330);
+  TEST_ASSERT_EQUAL(GateState::FECHANDO, s.st());
+  s.in.obstacleRaw = true; s.run(1);
+  TEST_ASSERT_EQUAL(GateState::ABRINDO, s.st());
+  TEST_ASSERT_EQUAL_UINT32(1, s.g.metrics().reversals);
+  TEST_ASSERT_EQUAL_UINT32(0, s.g.metrics().closeStartedWithObstacle);
+  s.run(1000);
+  TEST_ASSERT_EQUAL(GateState::ABERTA, s.st());
+  TEST_ASSERT_EQUAL(FaultCode::NENHUMA, s.g.fault());
+}
+
+void test_bancada_aguarda_passagem_livre_antes_de_acionar_servo_no_boot() {
+  Sim s(benchCfg()); s.obstacle(true); s.init(false); s.run(1000);
+  TEST_ASSERT_EQUAL(GateState::INICIALIZANDO, s.st());
+  TEST_ASSERT_FALSE(s.g.servoEnabled());
+  s.obstacle(false); s.run(5);
+  TEST_ASSERT_EQUAL(GateState::FECHADA, s.st());
+  TEST_ASSERT_TRUE(s.g.servoEnabled());
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_boot_com_fim_de_curso_fica_fechada);
@@ -310,5 +370,9 @@ int main() {
   RUN_TEST(test_operador_libera_entrada_em_modo_manual);
   RUN_TEST(test_autorizacao_expira_se_ninguem_passa);
   RUN_TEST(test_liberar_em_falha_e_recusado);
+  RUN_TEST(test_bancada_ciclo_automatico_conta_passagem_e_fecha_sem_chave);
+  RUN_TEST(test_bancada_chave_pressionada_nao_interrompe_movimento);
+  RUN_TEST(test_bancada_obstaculo_bloqueia_fechamento_e_reabre_com_sinal_raw);
+  RUN_TEST(test_bancada_aguarda_passagem_livre_antes_de_acionar_servo_no_boot);
   return UNITY_END();
 }

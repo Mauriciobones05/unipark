@@ -9,6 +9,7 @@ export interface GateEvent { t: number; msg: string; at?: number }
 export interface Status {
   state: GateState;
   mode: GateMode;
+  benchMode?: boolean;
   stateAgeMs: number;
   uptimeMs: number;
   fault: { code: string; message: string };

@@ -33,7 +33,12 @@ constexpr FilterTimes FILTER_LIMIT    = {30, 30};    // fim de curso: elimina re
 constexpr uint16_t PARKING_CAPACITY = 5;   // total de vagas
 
 // ---------- Parametros da cancela (calibrar no hardware real!) ----------
+#ifndef ENABLE_BENCH_MODE
+#define ENABLE_BENCH_MODE 0
+#endif
+
 struct GateConfig {
+  bool     requireLimitSwitch = !ENABLE_BENCH_MODE; // bancada: servo solto, posicao estimada
   float    angleClosed      = 0.0f;     // graus com o palito horizontal (FECHADA)
   float    angleOpen        = 90.0f;    // graus com o palito vertical (ABERTA)
   uint32_t travelOpenMs     = 1000;     // tempo estimado para ir de fechada ate aberta

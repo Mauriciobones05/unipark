@@ -47,7 +47,7 @@ void WebServerManager::serveFile(const String& path) {
   }
   File f = LittleFS.open(gz ? path + ".gz" : path, "r");
   server.sendHeader("Cache-Control", "no-cache");
-  if (gz) server.sendHeader("Content-Encoding", "gzip");
+  // streamFile adiciona Content-Encoding para .gz; duplicar impede a leitura no navegador.
   server.streamFile(f, mimeOf(path));
   f.close();
 }
@@ -67,7 +67,8 @@ void WebServerManager::sendStatus() {
   b.reserve(1800);
   b += "{\"state\":\"";  b += stateName(s.state);
   b += "\",\"mode\":\""; b += modeName(s.mode);
-  b += "\",\"stateAgeMs\":"; b += s.stateAgeMs;
+  b += "\",\"benchMode\":"; b += ENABLE_BENCH_MODE ? "true" : "false";
+  b += ",\"stateAgeMs\":"; b += s.stateAgeMs;
   b += ",\"uptimeMs\":"; b += millis();
   b += ",\"fault\":{\"code\":\""; b += faultName(s.fault);
   b += "\",\"message\":\""; b += faultMessage(s.fault); b += "\"}";

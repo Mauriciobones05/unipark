@@ -37,10 +37,30 @@ Com o ESP32 de volta: conecte o PC à rede `Cancela-ESP32` e use `npm run dev:es
 
 > O simulador é uma cópia em JavaScript da lógica do firmware (`frontend/mock/simulator.js`); **não prova** que o firmware funciona. Ele nunca entra no build gravado no ESP32.
 
+## Teste de bancada com servo solto
+
+Sem uma haste montada para acionar o fim de curso, use o ambiente `bench`:
+
+```
+pio run -e bench -t upload
+pio run -e bench -t uploadfs
+```
+
+Esse firmware inicia em automático: **D32** detecta a chegada e abre o servo;
+**D33** detecta a passagem e impede o fechamento enquanto estiver ocupado.
+Após a passagem ficar livre, a cancela fecha depois de 3 segundos. Sem passagem,
+a autorização aguarda 8 segundos antes do fechamento.
+
+No modo de bancada, as posições são estimadas pelo comando do servo e o fim de
+curso não participa do controle. O painel identifica esse modo. Use-o com o servo
+solto; para a montagem com haste e confirmação física, grave novamente o ambiente
+`esp32dev` e fixe o fim de curso para ser acionado na posição fechada.
+
 ## Sumário da documentação
 
 | Documento | Conteúdo |
 |---|---|
+| `docs/integracao_frontend.md` | Acesso pelo celular, Wi-Fi da cancela e teste de integração pelo navegador |
 | `docs/componentes.md` | Materiais, pinagem, decisões elétricas, limitações dos sensores |
 | `docs/montagem.md` | Tutorial de montagem na protoboard (iniciante) |
 | `docs/arquitetura.md` | Blocos, API REST, Wi-Fi, concorrência, frontend |

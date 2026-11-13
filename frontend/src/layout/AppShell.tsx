@@ -77,6 +77,11 @@ export function AppShell({ route, children }: { route: string; children: ReactNo
 
       {/* Avisos globais */}
       <div className="space-y-2 px-4 pt-4 lg:px-8">
+        {status?.benchMode && (
+          <div role="status" className="rounded-xl bg-amber-100 px-4 py-3 text-sm font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-100">
+            Modo de bancada: teste do servo sem haste. O fim de curso não é exigido; as posições são estimadas pelo comando do servo. O sensor de passagem continua bloqueando o fechamento.
+          </div>
+        )}
         {lost && (
           <div role="alert" className="flex items-start gap-3 rounded-xl bg-rose-600 px-4 py-3 text-sm font-medium text-white">
             <WifiOff className="mt-0.5 size-4 shrink-0" aria-hidden />
