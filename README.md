@@ -8,9 +8,8 @@ livre e fecha confirmando a posição por um fim de curso. O painel web **UniPar
 
 > **Status honesto do projeto**
 > ✅ Compilado com PlatformIO (firmware, `faultsim`, 7 testes de hardware e imagem LittleFS) e frontend React compilado com Vite.
-> ✅ 27 testes de lógica no PC (`pio test -e native`); o relatório de 12/11 registra 27/27 aprovados. O simulador do painel passou no roteiro `frontend/mock/smoke.mjs`.
-> ✅ **Gravado e testado em um ESP32 real na bancada (12/11, `docs/Relatorio_UniPark_12-11-2026.pdf`):** sensores, servo e LEDs respondem; 5 ciclos automáticos sem falhas; integração pelo navegador com a API real, 8/8 cenários (`frontend/tests/esp.integration.mjs`). A bancada usa o ambiente `bench` (servo solto, sem fim de curso).
-> ❌ **Ainda não feito:** fixar a haste e o fim de curso e voltar ao ambiente `esp32dev`; medir tensão e corrente; calibrar ângulos e tempos; testar em um celular físico. Os resultados T01–T06 ainda precisam ser **medidos** (`docs/testes.md`).
+> ✅ 23 testes de lógica executados no PC (`pio test -e native`), todos passaram. O simulador do painel passou no roteiro `frontend/mock/smoke.mjs`.
+> ❌ **Nunca gravado em um ESP32 real nem testado com hardware**, e o painel React nunca foi aberto em um navegador contra o ESP32. Todos os valores de calibração são pontos de partida. Os resultados T01–T06 devem ser **medidos por você** (`docs/testes.md`).
 
 ## Estacionamento (vagas, entrada e saída)
 
