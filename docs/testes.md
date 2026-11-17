@@ -6,9 +6,10 @@
 |---|---|
 | Firmware principal e 7 programas de teste de hardware **compilam** (PlatformIO, espressif32 6.9.0) | ✅ executado |
 | Imagem LittleFS (`buildfs`) gerada | ✅ executado |
-| 23 testes de lógica no PC (`pio test -e native`) | ✅ executado, 23/23 passaram (inclui vagas, lotação, entrada/saída, expiração de autorização) |
+| 27 testes de lógica no PC (`pio test -e native`) | ✅ 27/27 aprovados segundo o relatório de 12/11 (inclui vagas, lotação, entrada/saída, expiração de autorização e o modo bancada) |
 | Simulador do painel (`node frontend/mock/smoke.mjs`) | ✅ executado, passou. Valida a API simulada, não o firmware |
-| Gravação no ESP32 e qualquer teste com hardware | ❌ **NÃO executado** (sem hardware disponível ao desenvolver) |
+| Gravação no ESP32 e ensaios funcionais na bancada (ambiente `bench`) | ✅ executado em 12/11: 5 ciclos automáticos sem falhas; integração pelo navegador 8/8 com a API real (ver `Relatorio_UniPark_12-11-2026.pdf`) |
+| Ensaios elétricos (tensão, corrente), haste com fim de curso e celular físico | ❌ **NÃO executado** |
 | Resultados T01 a T06 | ⬜ **A medir por você**; as tabelas abaixo estão vazias de propósito |
 
 ## 1. Testes individuais de hardware
